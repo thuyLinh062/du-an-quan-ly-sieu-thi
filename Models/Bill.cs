@@ -16,6 +16,7 @@ namespace SupermarketManagementSystem
         public int AppliedPoints { get; private set; }
         public PaymentType PaymentMethod { get; private set; }
         public DateTime CreatedAt { get; private set; }
+        public bool IsPaid { get; private set; }  
         public IReadOnlyList<BillItem> Items => _items.AsReadOnly();
 
         public decimal SubTotal => _items.Sum(i => i.LineTotal);
@@ -36,6 +37,7 @@ namespace SupermarketManagementSystem
         public void AddItem(CartItem cart)
         {
             if (cart == null) throw new ArgumentNullException(nameof(cart));
+            EnsureNotPaid();
             EnsureNoDiscountApplied();
 
             var existing = _items.FirstOrDefault(i => i.ProductId == cart.Product.ProductId);
@@ -62,12 +64,14 @@ namespace SupermarketManagementSystem
 
         public void RemovePromotion()
         {
+            EnsureNotPaid();
             PromotionId = null;
             DiscountAmount = 0;
         }
 
         public void ApplyPoints(int points)
         {
+            EnsureNotPaid();
             if (string.IsNullOrEmpty(CustomerId))
                 throw new InvalidOperationException("Khách vãng lai không được dùng điểm.");
             if (points <= 0) throw new ArgumentException("Số điểm sử dụng phải lớn hơn 0.", nameof(points));
@@ -76,10 +80,21 @@ namespace SupermarketManagementSystem
             AppliedPoints = points;
         }
 
-        public void SetPaymentMethod(PaymentType method) => PaymentMethod = method;
+        public void RemovePoints()
+        {
+            EnsureNotPaid();
+            AppliedPoints = 0;
+        }
+
+        public void SetPaymentMethod(PaymentType method)
+        {
+            EnsureNotPaid();
+            PaymentMethod = method;
+        }
 
         public void SetCustomer(string? customerId)
         {
+            EnsureNotPaid();
             EnsureNoDiscountApplied();
             CustomerId = string.IsNullOrWhiteSpace(customerId) ? null : customerId;
         }
@@ -96,6 +111,13 @@ namespace SupermarketManagementSystem
             if (FinalAmount < 0) throw new InvalidOperationException("Số tiền thanh toán không hợp lệ.");
         }
 
+        //BR12: gọi thanh toán thành công không được thay đổi nữa
+        public void MarkAsPaid()
+        {
+            Validate();
+            IsPaid = true;
+        }
+
         public void AssignId(int billId)
         {
             if (BillId != 0) throw new InvalidOperationException("Mã hóa đơn đã được gán.");
@@ -108,6 +130,12 @@ namespace SupermarketManagementSystem
             PromotionId = promotionId;
             DiscountAmount = discountAmount;
             AppliedPoints = appliedPoints;
+        }
+
+        private void EnsureNotPaid()
+        {
+            if (IsPaid)
+                throw new InvalidOperationException("Hóa đơn đã thanh toán, không được thay đổi (BR12).");
         }
 
         private void EnsureNoDiscountApplied()

@@ -43,6 +43,22 @@ namespace SupermarketManagementSystem
             Unit = unit.Trim();
         }
 
+        // Cập nhật thông tin, giá và danh mục trong một lần: kiểm tra hết trước khi gán
+        // để lỗi ở bước sau không làm đối tượng bị sửa dở dang.
+        public void UpdateDetails(string barcode, string name, string unit,
+                                decimal importPrice, decimal sellingPrice, string categoryId)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Tên sản phẩm trống.", nameof(name));
+            if (string.IsNullOrWhiteSpace(unit)) throw new ArgumentException("Đơn vị tính trống.", nameof(unit));
+            if (string.IsNullOrWhiteSpace(categoryId)) throw new ArgumentException("Thiếu danh mục.", nameof(categoryId));
+            if (importPrice < 0 || sellingPrice < 0) throw new ArgumentException("Giá không được âm.");
+            if (sellingPrice < importPrice) throw new ArgumentException("Giá bán phải lớn hơn hoặc bằng giá nhập.");
+
+            UpdateInfo(barcode, name, unit);
+            UpdatePrice(importPrice, sellingPrice);
+            ChangeCategory(categoryId);
+        }
+        
         public void ChangeCategory(string categoryId)
         {
             if (string.IsNullOrWhiteSpace(categoryId)) throw new ArgumentException("Thiếu danh mục.", nameof(categoryId));

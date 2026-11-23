@@ -31,10 +31,11 @@ namespace SupermarketManagementSystem
 
         public void AddItem(string productId, int quantity, decimal importUnitPrice)
         {
-            var existing = _details.FirstOrDefault(d => d.ProductId == productId);
+            string cleanId = productId?.Trim() ?? string.Empty;
+            var existing = _details.FirstOrDefault(d => string.Equals(d.ProductId, cleanId, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
-                throw new InvalidOperationException($"Sản phẩm {productId} đã có trong phiếu nhập.");
-            _details.Add(new StockReceiptItem(ReceiptId, productId, quantity, importUnitPrice));
+                throw new InvalidOperationException($"Sản phẩm {cleanId} đã có trong phiếu nhập.");
+            _details.Add(new StockReceiptItem(ReceiptId, cleanId, quantity, importUnitPrice));
         }
 
         public void Validate()

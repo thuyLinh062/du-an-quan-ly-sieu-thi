@@ -36,7 +36,6 @@ namespace SupermarketManagementSystem
             EndDate = endDate;
         }
 
-        /// <summary>BR04: IsActive, nằm trong [StartDate, EndDate] và đạt giá trị tối thiểu.</summary>
         public bool IsValid(decimal orderAmount, DateTime currentDate)
             => IsActive
                && currentDate.Date >= StartDate.Date

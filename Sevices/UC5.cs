@@ -45,8 +45,11 @@ namespace SupermarketManagementSystem
             }
 
             string cleanCategoryId = categoryId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(cleanCategoryId) || _categoryRepository.GetById(cleanCategoryId) == null)
+            var category = string.IsNullOrWhiteSpace(cleanCategoryId) ? null : _categoryRepository.GetById(cleanCategoryId);
+            if (category == null)
                 throw new BusinessRuleException($"Danh mục '{cleanCategoryId}' không tồn tại.");
+            if (!category.IsActive)
+                throw new BusinessRuleException($"Danh mục '{cleanCategoryId}' đã ngừng sử dụng.");
 
             string cleanSupplierId = supplierId?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(cleanSupplierId) || _supplierRepository.GetById(cleanSupplierId) == null)
@@ -102,14 +105,18 @@ namespace SupermarketManagementSystem
             }
 
             string cleanCategoryId = categoryId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(cleanCategoryId) || _categoryRepository.GetById(cleanCategoryId) == null)
+            var category = string.IsNullOrWhiteSpace(cleanCategoryId) ? null : _categoryRepository.GetById(cleanCategoryId);
+            if (category == null)
                 throw new BusinessRuleException($"Danh mục '{cleanCategoryId}' không tồn tại.");
+
+            // Chỉ chặn khi chuyển sang danh mục đã ngừng; sản phẩm giữ nguyên danh mục cũ vẫn được sửa giá/thông tin.
+            bool changingCategory = !string.Equals(category.CategoryId, product.CategoryId, StringComparison.OrdinalIgnoreCase);
+            if (changingCategory && !category.IsActive)
+                throw new BusinessRuleException($"Danh mục '{cleanCategoryId}' đã ngừng sử dụng.");
 
             try
             {
-                product.UpdateInfo(cleanBarcode, name, unit);
-                product.UpdatePrice(importPrice, sellingPrice);
-                product.ChangeCategory(cleanCategoryId);
+                product.UpdateDetails(cleanBarcode, name, unit, importPrice, sellingPrice, cleanCategoryId);
                 _productRepository.Update(product);
             }
             catch (ArgumentException ex)

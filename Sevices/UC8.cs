@@ -4,27 +4,6 @@ using System.Linq;
 
 namespace SupermarketManagementSystem
 {
-    public class CategoryRevenue
-    {
-        public string CategoryId { get; private set; }
-        public string CategoryName { get; private set; }
-        public decimal Revenue { get; private set; }
-
-        public CategoryRevenue(string categoryId, string categoryName, decimal revenue)
-        {
-            if (string.IsNullOrWhiteSpace(categoryId))
-                throw new ArgumentException("Mã danh mục trống.", nameof(categoryId));
-            if (string.IsNullOrWhiteSpace(categoryName))
-                throw new ArgumentException("Tên danh mục trống.", nameof(categoryName));
-            if (revenue < 0)
-                throw new ArgumentException("Doanh thu danh mục không được âm.", nameof(revenue));
-
-            CategoryId = categoryId.Trim();
-            CategoryName = categoryName.Trim();
-            Revenue = revenue;
-        }
-    }
-
     public class ReportService : BaseService
     {
         private readonly IBillRepository _billRepository;
@@ -48,17 +27,12 @@ namespace SupermarketManagementSystem
             RequireManagement();
             ValidateDateRange(startDate, endDate);
 
-            DateTime from = startDate.Date;
-            DateTime toExclusive = endDate.Date.AddDays(1);
+            var bills = GetBills(startDate, endDate);
 
-            var validBills = _billRepository.GetByDateRange(from, toExclusive)
-                .Where(b => b.CreatedAt >= from && b.CreatedAt < toExclusive)
-                .ToList();
-
-            if (validBills.Count == 0)
+            if (bills.Count == 0)
                 return new List<RevenueReport>();
 
-            return validBills
+            return bills
                 .GroupBy(b => b.CreatedAt.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new RevenueReport(
@@ -81,14 +55,9 @@ namespace SupermarketManagementSystem
             if (topN <= 0)
                 throw new BusinessRuleException("Số lượng top sản phẩm phải lớn hơn 0.");
 
-            DateTime from = startDate.Date;
-            DateTime toExclusive = endDate.Date.AddDays(1);
+            var bills = GetBills(startDate, endDate);
 
-            var validBills = _billRepository.GetByDateRange(from, toExclusive)
-                .Where(b => b.CreatedAt >= from && b.CreatedAt < toExclusive)
-                .ToList();
-
-            var items = validBills.SelectMany(b => b.Items).ToList();
+            var items = bills.SelectMany(b => b.Items).ToList();
             if (items.Count == 0)
                 return new List<ProductSales>();
 
@@ -96,12 +65,13 @@ namespace SupermarketManagementSystem
                 .ToDictionary(p => p.ProductId, p => p.Name, StringComparer.OrdinalIgnoreCase);
 
             return items
-                .GroupBy(i => i.ProductId)
+                .GroupBy(i => i.ProductId, StringComparer.OrdinalIgnoreCase)
                 .Select(g =>
                 {
-                    string prodName = productsById.TryGetValue(g.Key, out var name)
+                    // Tên hiện tại -> tên chụp trên hóa đơn -> mã sản phẩm (tránh tên rỗng làm lỗi báo cáo)
+                    string prodName = productsById.TryGetValue(g.Key, out var name) && !string.IsNullOrWhiteSpace(name)
                         ? name
-                        : g.First().ProductName;
+                        : g.Select(i => i.ProductName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key;
 
                     return new ProductSales(
                         productId: g.Key,
@@ -120,14 +90,9 @@ namespace SupermarketManagementSystem
             RequireManagement();
             ValidateDateRange(startDate, endDate);
 
-            DateTime from = startDate.Date;
-            DateTime toExclusive = endDate.Date.AddDays(1);
+            var bills = GetBills(startDate, endDate);
 
-            var validBills = _billRepository.GetByDateRange(from, toExclusive)
-                .Where(b => b.CreatedAt >= from && b.CreatedAt < toExclusive)
-                .ToList();
-
-            var items = validBills.SelectMany(b => b.Items).ToList();
+            var items = bills.SelectMany(b => b.Items).ToList();
             if (items.Count == 0)
                 return new List<CategoryRevenue>();
 
@@ -171,6 +136,17 @@ namespace SupermarketManagementSystem
 
             return _productRepository.GetAll()
                 .Where(p => p.IsLowStock(threshold))
+                .ToList();
+        }
+
+        // BR13: chỉ tính theo ngày, gồm cả ngày kết thúc. IBillRepository.GetByDateRange nhận khoảng [from, toExclusive).
+        private List<Bill> GetBills(DateTime startDate, DateTime endDate)
+        {
+            DateTime from = startDate.Date;
+            DateTime toExclusive = endDate.Date.AddDays(1);
+
+            return _billRepository.GetByDateRange(from, toExclusive)
+                .Where(b => b.CreatedAt >= from && b.CreatedAt < toExclusive)
                 .ToList();
         }
 
