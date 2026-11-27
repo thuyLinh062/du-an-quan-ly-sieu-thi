@@ -49,10 +49,16 @@ namespace SupermarketManagementSystem
             else existing.IncreaseQuantity(cart.SelectedQuantity);
         }
 
-        public void LoadItem(BillItem item) => _items.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        public void LoadItem(BillItem item)
+        {
+            EnsureNotPaid();
+            _items.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        }
 
         public void ApplyPromotion(Promotion promo, DateTime currentDate)
         {
+            EnsureNotPaid();
+
             if (promo == null) throw new ArgumentNullException(nameof(promo));
             if (AppliedPoints > 0)
                 throw new InvalidOperationException("Phải áp dụng khuyến mãi trước khi dùng điểm.");
@@ -111,31 +117,36 @@ namespace SupermarketManagementSystem
             if (FinalAmount < 0) throw new InvalidOperationException("Số tiền thanh toán không hợp lệ.");
         }
 
-        //BR12: gọi thanh toán thành công không được thay đổi nữa
+        //BR13: gọi thanh toán thành công không được thay đổi nữa
         public void MarkAsPaid()
         {
+            EnsureNotPaid();
             Validate();
             IsPaid = true;
         }
 
         public void AssignId(int billId)
         {
+            EnsureNotPaid();
+
             if (BillId != 0) throw new InvalidOperationException("Mã hóa đơn đã được gán.");
             BillId = billId;
             foreach (var item in _items) item.AssignBill(billId);
         }
 
-        public void Restore(string? promotionId, decimal discountAmount, int appliedPoints)
+        public void Restore(string? promotionId, decimal discountAmount, int appliedPoints, bool isPaid = false)
         {
+            EnsureNotPaid();
             PromotionId = promotionId;
             DiscountAmount = discountAmount;
             AppliedPoints = appliedPoints;
+            IsPaid = isPaid;
         }
 
         private void EnsureNotPaid()
         {
             if (IsPaid)
-                throw new InvalidOperationException("Hóa đơn đã thanh toán, không được thay đổi (BR12).");
+                throw new InvalidOperationException("Hóa đơn đã thanh toán, không được thay đổi (BR13).");
         }
 
         private void EnsureNoDiscountApplied()

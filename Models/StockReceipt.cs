@@ -29,12 +29,14 @@ namespace SupermarketManagementSystem
             Note = note?.Trim() ?? string.Empty;
         }
 
-        public void AddItem(string productId, int quantity, decimal importUnitPrice)
+        public void AddItem(string productId, int quantity, decimal importUnitPrice, DateTime? expiryDate = null)
         {
             string cleanId = productId?.Trim() ?? string.Empty;
             var existing = _details.FirstOrDefault(d => string.Equals(d.ProductId, cleanId, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
                 throw new InvalidOperationException($"Sản phẩm {cleanId} đã có trong phiếu nhập.");
+            if (expiryDate.HasValue && expiryDate.Value.Date < ImportDate.Date)
+            throw new ArgumentException("Hạn sử dụng không được trước ngày nhập.", nameof(expiryDate));
             _details.Add(new StockReceiptItem(ReceiptId, cleanId, quantity, importUnitPrice));
         }
 

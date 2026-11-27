@@ -2,7 +2,7 @@ using System;
 
 namespace SupermarketManagementSystem
 {
-    public class Category
+    public class Category : IManageable
     {
         public string CategoryId { get; private set; }
         public string Name { get; private set; }
@@ -25,6 +25,7 @@ namespace SupermarketManagementSystem
         }
 
         public void SetActive(bool active) => IsActive = active;
+        public void Disable() => IsActive = false;
 
         public override string ToString() => $"{CategoryId} - {Name}";
     }

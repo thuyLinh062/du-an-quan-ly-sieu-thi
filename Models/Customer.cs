@@ -28,7 +28,12 @@ namespace SupermarketManagementSystem
         public int EarnPointsFromBill(decimal finalAmount)
         {
             if (finalAmount < 0) throw new ArgumentException("Số tiền không hợp lệ.", nameof(finalAmount));
-            int earned = (int)(finalAmount / PointEarnUnit);
+            
+            decimal earnedDecimal = Math.Floor(finalAmount / PointEarnUnit);
+
+            if (earnedDecimal > int.MaxValue - ShoppingPoints)
+                throw new OverflowException("Số điểm tích lũy vượt giới hạn.");
+            int earned = (int)earnedDecimal;
             ShoppingPoints += earned;
             AddSpending(finalAmount);
             return earned;
@@ -44,13 +49,20 @@ namespace SupermarketManagementSystem
 
         public void AdjustPoints(int delta)
         {
-            if (ShoppingPoints + delta < 0) throw new InvalidOperationException("Điều chỉnh làm điểm bị âm.");
-            ShoppingPoints += delta;
+            long newPoints = (long)ShoppingPoints + delta;
+            
+            if (newPoints < 0) throw new InvalidOperationException("Điều chỉnh làm điểm bị âm.");
+
+            if (newPoints > int.MaxValue) throw new OverflowException("Số điểm vượt giới hạn.");
+
+            ShoppingPoints = (int)newPoints;
         }
 
         public void AddSpending(decimal amount)
         {
             if (amount < 0) throw new ArgumentException("Số tiền không hợp lệ.", nameof(amount));
+
+            if (amount > decimal.MaxValue - TotalSpent) throw new OverflowException("Tổng chi tiêu vượt giới hạn.");
             TotalSpent += amount;
             Tier = CalculateTier(TotalSpent);
         }

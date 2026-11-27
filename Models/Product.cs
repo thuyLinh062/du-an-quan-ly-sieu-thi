@@ -42,27 +42,23 @@ namespace SupermarketManagementSystem
             Name = name.Trim();
             Unit = unit.Trim();
         }
-
-        // Cập nhật thông tin, giá và danh mục trong một lần: kiểm tra hết trước khi gán
-        // để lỗi ở bước sau không làm đối tượng bị sửa dở dang.
-        public void UpdateDetails(string barcode, string name, string unit,
-                                decimal importPrice, decimal sellingPrice, string categoryId)
-        {
-            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Tên sản phẩm trống.", nameof(name));
-            if (string.IsNullOrWhiteSpace(unit)) throw new ArgumentException("Đơn vị tính trống.", nameof(unit));
-            if (string.IsNullOrWhiteSpace(categoryId)) throw new ArgumentException("Thiếu danh mục.", nameof(categoryId));
-            if (importPrice < 0 || sellingPrice < 0) throw new ArgumentException("Giá không được âm.");
-            if (sellingPrice < importPrice) throw new ArgumentException("Giá bán phải lớn hơn hoặc bằng giá nhập.");
-
-            UpdateInfo(barcode, name, unit);
-            UpdatePrice(importPrice, sellingPrice);
-            ChangeCategory(categoryId);
-        }
         
         public void ChangeCategory(string categoryId)
         {
             if (string.IsNullOrWhiteSpace(categoryId)) throw new ArgumentException("Thiếu danh mục.", nameof(categoryId));
             CategoryId = categoryId.Trim();
+        }
+
+        //BR05: sản phẩm đang bán và đủ tồn kho.
+        public bool CanSell(int requestedQuantity)
+            => IsActive && requestedQuantity > 0 && StockQuantity >= requestedQuantity;
+
+        //BR05: trừ tồn khi thanh toán thành công.
+        public void DecreaseStock(int amount)
+        {
+            if (!CanSell(amount))
+                throw new InvalidOperationException($"Sản phẩm '{Name}' không đủ tồn kho hoặc đã ngừng kinh doanh.");
+            StockQuantity -= amount;
         }
 
         //BR06: giá bán >= giá nhập và >= 0.
@@ -76,16 +72,20 @@ namespace SupermarketManagementSystem
             SellingPrice = sellingPrice;
         }
 
-        //BR05: sản phẩm đang bán và đủ tồn kho.
-        public bool CanSell(int requestedQuantity)
-            => IsActive && requestedQuantity > 0 && StockQuantity >= requestedQuantity;
-
-        //BR05: trừ tồn khi thanh toán thành công.
-        public void DecreaseStock(int amount)
+        // BR06: Cập nhật thông tin, giá và danh mục trong một lần: kiểm tra hết trước khi gán
+        // để lỗi ở bước sau không làm đối tượng bị sửa dở dang.
+        public void UpdateDetails(string barcode, string name, string unit,
+                                decimal importPrice, decimal sellingPrice, string categoryId)
         {
-            if (!CanSell(amount))
-                throw new InvalidOperationException($"Sản phẩm '{Name}' không đủ tồn kho hoặc đã ngừng kinh doanh.");
-            StockQuantity -= amount;
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Tên sản phẩm trống.", nameof(name));
+            if (string.IsNullOrWhiteSpace(unit)) throw new ArgumentException("Đơn vị tính trống.", nameof(unit));
+            if (string.IsNullOrWhiteSpace(categoryId)) throw new ArgumentException("Thiếu danh mục.", nameof(categoryId));
+            if (importPrice < 0 || sellingPrice < 0) throw new ArgumentException("Giá không được âm.");
+            if (sellingPrice < importPrice) throw new ArgumentException("Giá bán phải lớn hơn hoặc bằng giá nhập.");
+
+            UpdateInfo(barcode, name, unit);
+            UpdatePrice(importPrice, sellingPrice);
+            ChangeCategory(categoryId);
         }
 
         //BR06: nhập kho, số lượng phải > 0.
@@ -103,9 +103,21 @@ namespace SupermarketManagementSystem
             StockQuantity += delta;
         }
 
-        //BR07: sản phẩm đang kinh doanh và tồn <= ngưỡng.
+        // BR07: cập nhật giá vốn theo lô nhập mới nhất. Không chặn; nơi gọi tự cảnh báo nếu SellingPrice <= giá nhập.
+        public void UpdateImportPrice(decimal newImportPrice)
+        {
+            if (newImportPrice < 0) throw new ArgumentException("Giá nhập không được âm.", nameof(newImportPrice));
+            ImportPrice = newImportPrice;
+        }
+
+        //BR08: sản phẩm đang kinh doanh và tồn <= ngưỡng.
         public bool IsLowStock(int threshold = DefaultLowStockThreshold)
-            => IsActive && StockQuantity <= threshold;
+        {
+            if (threshold < 0)
+                throw new ArgumentException("Ngưỡng tồn kho không được âm.", nameof(threshold));
+
+            return IsActive && StockQuantity <= threshold;
+        }
 
         public void Disable() => IsActive = false;
         public void Enable() => IsActive = true;

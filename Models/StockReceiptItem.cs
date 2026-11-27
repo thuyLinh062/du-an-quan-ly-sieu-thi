@@ -10,8 +10,11 @@ namespace SupermarketManagementSystem
         public int Quantity { get; private set; }
         public decimal ImportUnitPrice { get; private set; }
         public decimal LineTotal => Quantity * ImportUnitPrice;
+        public DateTime? ExpiryDate { get; private set; }
 
-        public StockReceiptItem(string receiptId, string productId, int quantity, decimal importUnitPrice, int receiptItemId = 0)
+        public StockReceiptItem(string receiptId, string productId, int quantity, 
+            decimal importUnitPrice, int receiptItemId = 0,
+            DateTime? expiryDate = null)
         {
             if (string.IsNullOrWhiteSpace(productId)) throw new ArgumentException("Thiếu mã sản phẩm.", nameof(productId));
             if (quantity <= 0) throw new ArgumentException("Số lượng nhập phải lớn hơn 0.", nameof(quantity));
